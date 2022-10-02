@@ -27,6 +27,8 @@ use ink_engine::test_api::RecordedDebugMessages;
 use std::panic::UnwindSafe;
 
 pub use super::call_data::CallData;
+use crate::contract::Entrypoint;
+use ink_engine::ext::Contract;
 pub use ink_engine::ChainExtension;
 
 /// Record for an emitted event.
@@ -94,6 +96,7 @@ where
         instance
             .engine
             .chain_extension_handler
+            .borrow_mut()
             .register(Box::new(extension));
     })
 }
@@ -222,6 +225,7 @@ where
         let caller = instance
             .engine
             .exec_context
+            .borrow()
             .caller
             .as_ref()
             .expect("no caller has been set")
@@ -403,4 +407,16 @@ macro_rules! pay_with_call {
         $crate::test::transfer_in::<Environment>($amount);
         $contract.$message($ ($params) ,*)
     }}
+}
+
+/// Registers the contract by the code hash. After registration, the contract can be instantiated.
+pub fn register_contract<C>(code_hash: &[u8]) -> Option<Contract>
+where
+    C: Entrypoint + ?Sized,
+{
+    <EnvInstance as OnInstance>::on_instance(|instance| {
+        let deploy = C::deploy;
+        let call = C::call;
+        instance.engine.register_contract(code_hash, deploy, call)
+    })
 }
